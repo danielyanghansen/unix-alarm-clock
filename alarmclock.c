@@ -38,6 +38,18 @@ void f_s() {
     printf("This is the schedule function");
 }
 
+void f_l() {
+    printf("This is the list function");
+}
+
+void f_c() {
+    printf("This is the cancel function");
+}
+
+void f_x() {
+    printf("This is the exit function");
+}
+
 int selectFunction(char c) {
     switch( c )
 {
@@ -45,19 +57,21 @@ int selectFunction(char c) {
         f_s();
         break;
 	case 'l':
-        printf("l not implemented");
+        f_l();
         break;
 	case 'c':
-        printf("c not implemented");
+        f_x();
         break;
     case 'x':
-        printf("x not implemented");
+        f_x();
+        break;
+    case '\n':
         break;
     default:
         printf("invalid selection");
-        return 0;
+        return -1;
 }
-    return 1;
+    return 0;
 }
 //Data init
 
@@ -69,9 +83,22 @@ int main() {
     time_t result = time(NULL);
     
     printf("Welcome to the alarm clock! It is currently %s \nPlease enter \"s\" (schedule), \"l\" (list), \"c\" (cancel), \"x\" (exit)" , ctime(&result));
-    while (1) {
-        char selectedFunction = scanf(3);
+    int run;
+    run = 1;
+    while (run) {
+        char selectedFunction;
+        selectedFunction = getchar() ;
         int sf = selectFunction(selectedFunction);
+        run = sf;
+        if (run == -1) {
+            printf("Error");
+        };
     }
     return 0;
 }
+
+
+
+
+//note to self: int scanf(const char *format, ...)
+//=> *variable means overloadable
