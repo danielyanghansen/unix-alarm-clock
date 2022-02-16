@@ -51,6 +51,10 @@ void outputAlarm(struct Alarm alarm) {
     printf("Alarm description: %s\nAlarm target time: %s\n\nRemaining time in seconds: %lu", alarm.alarmDescription, alarm.alarmDescription, remainingSeconds);
 }   //TODO: Check if %lu needs to be replaced with %ld
 
+int scheduleAlarm(char *targetTime) {
+    //
+}
+
 void f_s() {
     printf("This is the schedule function");
     //int second, minute, hour, day, month, year;
@@ -68,10 +72,11 @@ void f_s() {
         invalidTime = 0;
     }
     char descString[41] = {0};
-    printf("Entered time is %s", arrValue);
-    printf("%s", arrValue);
+    printf("Entered time is %s \n", timeString);
+    
+    printf("%s", &arrValue);
     printf("Enter a description (max 40 characters): \n");
-    scanf("%40c", &descString);
+    scanf("%40c", &descString); //TODO: Make it so that you can enter less than 40 characters :/
     printf("Description: %s", descString);
 
     int PID = fork();
@@ -82,7 +87,7 @@ void f_s() {
         //create alarm struct
         alarm freshAlarm = {
             secondCount,
-            arrValue,
+            alarmTm,
             descString
         };
         printf("Now running alarm: \n");
@@ -114,30 +119,26 @@ void f_x() {
 
 int selectFunction(char c) {
     switch( c )
-{
-	case 's':
-        f_s();
-        break;
-	case 'l':
-        f_l();
-        break;
-	case 'c':
-        f_x();
-        break;
-    case 'x':
-        f_x();
-        break;
-    case '\n':
-        break;
-    default:
-        printf("invalid selection");
-        return -1;
-}
-    return 0;
-}
-
-int scheduleAlarm(char *targetTime) {
-    //
+    {
+        case 's':
+            f_s();
+            break;
+        case 'l':
+            f_l();
+            break;
+        case 'c':
+            f_x();
+            break;
+        case 'x':
+            f_x();
+            break;
+        case '\n':
+            break;
+        default:
+            printf("invalid selection");
+            return -1;
+    }
+        return 0;
 }
 
 //getch() / getche() code
