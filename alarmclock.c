@@ -4,10 +4,11 @@
 
 
 //Global static variables
-
+time_t current_time;
 //Forward declare all functions and variables
 //variables and structs
 typedef struct Alarm;
+
 
 //functions
 void setTime(time_t t);
@@ -17,6 +18,8 @@ void f_c();
 void f_x();
 int scheduleAlarm(char *targetTime);
 int selectFunction(char c);
+void outputAlarm(struct Alarm alarm);
+void ring();
 
 //Definitions
 
@@ -33,11 +36,21 @@ typedef struct Alarm {
     char alarmDescription[40];
 } alarm; //alarm is an alias for "struct Alarm"
 
-alarm _gAlarmList[10];
+alarm _gAlarmList[10]; //TODO: GLOBAL ACCESS and fill with relevant Alarms by PID from var or tmp
 
 //Data init
 
 //Function Definitions
+
+void ring() {
+    printf("RING!");
+}
+
+void outputAlarm(struct Alarm alarm) {
+    long remainingSeconds = (long)alarm.secondsLeft;
+    printf("Alarm description: %s\nAlarm target time: %s\n\nRemaining time in seconds: %lu", alarm.alarmDescription, alarm.alarmDescription, remainingSeconds);
+}   //TODO: Check if %lu needs to be replaced with %ld
+
 void f_s() {
     printf("This is the schedule function");
     //int second, minute, hour, day, month, year;
@@ -53,15 +66,38 @@ void f_s() {
         arrValue = strptime(timeString, "%Y:%m:%d:%H:%M:%S", &alarmTm);
         //error catch: Invalid format, try again
         invalidTime = 0;
-
     }
+    char descString[41] = {0};
+    printf("Entered time is %s", arrValue);
+    printf("%s", arrValue);
+    printf("Enter a description (max 40 characters): \n");
+    scanf("%40c", &descString);
+    printf("Description: %s", descString);
+
+    int PID = fork();
+
+    if (PID == 0) {
+        time_t secondCount = mktime(&arrValue);
+
+        //create alarm struct
+        alarm freshAlarm = {
+            secondCount,
+            arrValue,
+            descString
+        };
+        printf("Now running alarm: \n");
+        outputAlarm(freshAlarm);
+
+        
+        //sysout something
+        //begin countdown
+    }
+    else if (PID) {
+
+    } // if parent
+    //register PID in var or tmp
     
-    printf("Entered time is %s\n", timeString);
-    // loop(take target time input |> parse input, repeat if invalid)
-    // |> loop(take target text input |> verify char array 40 or smaller)
-    // |> fork,
-    // child: |> create Alarm struct on previous info |> loop (counting down alarm) |> alarm goes off!
-    // parent: |> register child PID
+
 };
 
 void f_l() {
@@ -155,12 +191,13 @@ int main() {
 
     time_t result = time(NULL);
     
-    printf("Welcome to the alarm clock! It is currently %s \nPlease enter \"s\" (schedule), \"l\" (list), \"c\" (cancel), \"x\" (exit)" , ctime(&result));
+    printf("Welcome to the alarm clock!");
     int run;
     run = 1;
     while (run) {
+        printf("It is currently %s \nPlease press \"s\" (schedule), \"l\" (list), \"c\" (cancel), \"x\" (exit). Do not press enter: \n" , ctime(&result));
         char selectedFunction;
-        selectedFunction = getch(); //TODO: try to use scanf() maybe? RN we can enter a char[], which is bad. 
+        selectedFunction = getch(); //Getch returns the first given character, and does not wait for enter.
         int sf = selectFunction(selectedFunction);
         run = sf;
     }
@@ -172,3 +209,16 @@ int main() {
 
 //note to self: int scanf(const char *format, ...)
 //=> *variable means overloadable
+
+//time_t current_time;
+//time(&current_time); //-> 
+/* clock_t begin;
+    double time_spent;
+    unsigned int i;
+    begin = clock();
+    for (i=0;1;i++)
+        {
+        time_spent = (double)(clock() - begin) / CLOCKS_PER_SEC;
+        if (time_spent == stoptime???)
+            break;
+        } */
