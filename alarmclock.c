@@ -48,7 +48,9 @@ void ring() {
 
 void outputAlarm(struct Alarm alarm) {
     long remainingSeconds = (long)alarm.secondsLeft;
-    printf("Alarm description: %s\nAlarm target time: %s\n\nRemaining time in seconds: %lu", alarm.alarmDescription, alarm.alarmDescription, remainingSeconds);
+    char outDateString[40] = {0};
+    strftime(&outDateString, 39, "%a %m. %h %Y: %H:%M:%S", &alarm.targetTime);
+    printf("Alarm description: %s\nAlarm target time: %s\n\nRemaining time in seconds: %lu", alarm.alarmDescription, outDateString, remainingSeconds);
 }   //TODO: Check if %lu needs to be replaced with %ld
 
 int scheduleAlarm(char *targetTime) {
@@ -69,12 +71,12 @@ void f_s() {
         scanf("%19c", &timeString);
         arrValue = strptime(timeString, "%Y:%m:%d:%H:%M:%S", &alarmTm);
         //error catch: Invalid format, try again
+
         invalidTime = 0;
     }
     char descString[41] = {0};
     printf("Entered time is %s \n", timeString);
     
-    printf("%s", &arrValue);
     printf("Enter a description (max 40 characters): \n");
     scanf("%40c", &descString); //TODO: Make it so that you can enter less than 40 characters :/
     printf("Description: %s", descString);
@@ -82,7 +84,8 @@ void f_s() {
     int PID = fork();
 
     if (PID == 0) {
-        time_t secondCount = mktime(&arrValue);
+        time_t secondCount = mktime(&alarmTm);
+        printf("&alarmTm : %i,%i,%i,%i", alarmTm.tm_year, alarmTm.tm_mon, alarmTm.tm_mday, alarmTm.tm_hour);
 
         //create alarm struct
         alarm freshAlarm = {
