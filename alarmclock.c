@@ -17,7 +17,7 @@ typedef struct Alarm;
 
 //functions
 void setTime(time_t t);
-void f_s(void);
+int f_s(void);
 void f_l(void);
 void f_c(void);
 void f_x(void);
@@ -25,7 +25,7 @@ int scheduleAlarm(char *targetTime);
 int selectFunction(char c);
 void ring(void);
 void printAllAlarms(void);
-int findFirstAvailableSpot(void);
+int nextIndex(void);
 
 //Definitions
 
@@ -38,13 +38,13 @@ typedef struct {
 
 typedef struct Alarm {
     struct tm targetTime;
-    char alarmDescription[42];
+//    char alarmDescription[42];
     volatile pid_t PID; //we're just assuming this is "safe enough"
 } blarm; //alarm is an alias for "struct Alarm" (for some reason "alarm" was a taken symbol def.)
 
 
-blarm _gAlarmList[10] = {NULL}; //TODO: GLOBAL ACCESS and fill with relevant Alarms by PID from var or tmp
-int firstAvailableSpot;
+blarm *_p_gAlarmList[10] = {NULL}; //TODO: GLOBAL ACCESS and fill with relevant Alarms by PID from var or tmp
+int alarmListIndex = 10;
 
 
 
@@ -52,21 +52,15 @@ int firstAvailableSpot;
 
 //Function Definitions
 
-int findFirstAvailableSpot() {
-    for (int i = 0; i < 10 ; i++) {
-            if (&_gAlarmList[i] == 0) {
-                return i;
-                //
-                break;
-            } else if (i >= 9 && &_gAlarmList != 0) {
-                printf("No spots available");
-                return 10;
-            };
-        };
+//============================================FUNCTIONS USED "GLOBALLY"=======================================================
+
+int nextIndex() {
+    alarmListIndex = (alarmListIndex >= 10) ? 0 : alarmListIndex + 1;
+    return alarmListIndex;
 }
 
 void ring() {
-    printf("RING!");
+    printf("RING!\n");
 }
 
 int outputAlarm(struct Alarm alarm) {
@@ -76,25 +70,22 @@ int outputAlarm(struct Alarm alarm) {
     strftime(outDateString, 39, "%a %m. %h %Y: %H:%M:%S", &alarm.targetTime);
     printf("Alarm target time: %s\n", outDateString);
     printf("Remaining time in seconds:%i \n",(int) secondsLeftFromStart);
-    printf("Alarm Description: %s\n", alarm.alarmDescription);
+    //printf("Alarm Description: %s\n", alarm.alarmDescription);
     printf("\n");
 
     return 1;
 }   //TODO: Check if %lu needs to be replaced with %ld
 
-int scheduleAlarm(char *targetTime) {
-    //
-}
 
-void f_s() {
-    printf("This is the schedule function");
+//==============================================LOOP SELECTED FUNCTIONS========================================================
 
-    firstAvailableSpot = findFirstAvailableSpot();
-    if (findFirstAvailableSpot >= 10) {
-        return;
-    }
-    printf("First available spot: %i", firstAvailableSpot);
-    int selectedSpot = firstAvailableSpot;
+int f_s() {
+    printf("This is the schedule function\n");
+
+    int index = nextIndex();
+
+    printf("Using index: %i \n", index);
+    int selectedSpot = index;
     //int second, minute, hour, day, month, year;
     struct tm alarmTm;
     char timeString[40] = {0};
@@ -111,16 +102,16 @@ void f_s() {
         invalidTime = 0;
     }
     printf("Entered time is %s \n", timeString);
-    char descString[42] = {0};
+//    char descString[42] = {0};
 
     printf("Enter a description (max 40 characters): \n");
-    scanf(" %40[^\n]", &descString); 
-    printf("Desc: %s\n", descString);
+//    scanf(" %40[^\n]", &descString); 
+//    printf("Desc: %s\n", descString);
     
     
     blarm freshAlarm = {
         alarmTm,
-        descString,
+ //       descString,
         0
     };
 
@@ -153,14 +144,21 @@ void f_s() {
                 break;
             };
         };
-        _gAlarmList[selectedSpot] = (blarm) {0};
+
+        //Terminate process and drop out of list
+       
         kill(getpid(),1);
+
+        return -1;
     } else if (PID) {
         freshAlarm.PID = PID;
-        _gAlarmList[selectedSpot] = freshAlarm;
+        *_p_gAlarmList[selectedSpot] = freshAlarm;
 
-        printf("This is the parent with ID %d, the child ID is %d", getpid(), PID);
-        printf("");
+        printf("This is the parent with ID %d, the child ID is %d\n", getpid(), PID);
+        printf("\n");
+
+
+        return 1;
 
     } // if parent
     //register PID in var or tmp
@@ -169,11 +167,11 @@ void f_s() {
 };
 
 void f_l() {
-    printf("This is the list function");
+    printf("This is the list function\n");
 }
 
 void f_c() {
-    printf("This is the cancel function");
+    printf("This is the cancel function\n");
 
     pid_t pidTest = getpid();
     kill(pidTest, 1);
@@ -181,14 +179,16 @@ void f_c() {
 }
 
 void f_x() {
-    printf("Goodbye :)");
+    printf("Goodbye :)\n");
 }
+
+//=====================================================CORE LOOP===================================================================
 
 int selectFunction(char c) {
     switch( c )
     {
         case 's':
-            f_s();
+            return f_s();
             break;
         case 'l':
             f_l();
@@ -259,7 +259,7 @@ int main() {
 
     time_t result = time(NULL);
     
-    printf("Welcome to the alarm clock!");
+    printf("Welcome to the alarm clock!\n");
     int run;
     run = 1;
     while (run) {
@@ -276,4 +276,9 @@ int main() {
 
 //note to self: int scanf(const char *format, ...)
 //=> *variable means overloadable
+/* *_p_gAlarmList[selectedSpot] = freshAlarm;
+
+        printf("This is the parent with ID %d, the child ID is %d\n", getpid(), PID);
+        printf("Trying to out put alarm again from global alarm list: \n");
+        outputAlarm(*_p_gAlarmList[selectedSpot]);*/
 
