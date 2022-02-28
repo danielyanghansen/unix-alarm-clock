@@ -23,11 +23,16 @@ void f_c(void);
 void f_x(void);
 int scheduleAlarm(char *targetTime);
 int selectFunction(char c);
-void ring(void);
+void ring(int);
 void printAllAlarms(void);
-int nextIndex(void);
+
+//int insert_alarm(struct tm);
+//-
+//-
 
 //Definitions
+
+int NUM_ALARMS = 20;
 
 //Struct definitions
 
@@ -39,12 +44,11 @@ typedef struct {
 typedef struct Alarm {
     struct tm targetTime;
 //    char alarmDescription[42];
-    volatile pid_t PID; //we're just assuming this is "safe enough"
-} blarm; //alarm is an alias for "struct Alarm" (for some reason "alarm" was a taken symbol def.)
+    pid_t PID; //we're just assuming this is "safe enough"
+} alarmStruct; //alarm is an alias for "struct Alarm" (for some reason "alarm" was a taken symbol def.)
 
 
-blarm *_p_gAlarmList[10] = {NULL}; //TODO: GLOBAL ACCESS and fill with relevant Alarms by PID from var or tmp
-int alarmListIndex = 10;
+alarmStruct* all_alarms;
 
 
 
@@ -53,161 +57,7 @@ int alarmListIndex = 10;
 //Function Definitions
 
 //============================================FUNCTIONS USED "GLOBALLY"=======================================================
-
-int nextIndex() {
-    alarmListIndex = (alarmListIndex >= 10) ? 0 : alarmListIndex + 1;
-    return alarmListIndex;
-}
-
-void ring() {
-    printf("RING!\n");
-}
-
-int outputAlarm(struct Alarm alarm) {
-    char outDateString[40] = {'\0'};
-    time_t secondsLeftFromStart = mktime(&alarm.targetTime) - time(NULL);
-
-    strftime(outDateString, 39, "%a %m. %h %Y: %H:%M:%S", &alarm.targetTime);
-    printf("Alarm target time: %s\n", outDateString);
-    printf("Remaining time in seconds:%i \n",(int) secondsLeftFromStart);
-    //printf("Alarm Description: %s\n", alarm.alarmDescription);
-    printf("\n");
-
-    return 1;
-}   //TODO: Check if %lu needs to be replaced with %ld
-
-
-//==============================================LOOP SELECTED FUNCTIONS========================================================
-
-int f_s() {
-    printf("This is the schedule function\n");
-
-    int index = nextIndex();
-
-    printf("Using index: %i \n", index);
-    int selectedSpot = index;
-    //int second, minute, hour, day, month, year;
-    struct tm alarmTm;
-    char timeString[40] = {0};
-    char *arrValue;
-
-    printf("Enter time in format: YYYY:MM:DD:HH:MM:SS\n");
-    int invalidTime = 1;
-    while (invalidTime) {
-        //scanf("%04d:%02d:%02d:%02d:%02d:%02d", &year, &month, &day, &hour, &minute, &second); //aNNOYING
-        scanf("%19c", &timeString);
-        strptime(timeString, "%Y:%m:%d:%H:%M:%S", &alarmTm);
-        //error catch: Invalid format, try again
-
-        invalidTime = 0;
-    }
-    printf("Entered time is %s \n", timeString);
-//    char descString[42] = {0};
-
-    printf("Enter a description (max 40 characters): \n");
-//    scanf(" %40[^\n]", &descString); 
-//    printf("Desc: %s\n", descString);
-    
-    
-    blarm freshAlarm = {
-        alarmTm,
- //       descString,
-        0
-    };
-
-    pid_t PID = fork();
-
-    if (PID == 0) {
-        time_t secondCount = (mktime(&alarmTm)) - time(NULL);
-        printf("Seconds Left: %lu \n", secondCount);
-        //create alarm struct
-
-        //TODO: Log in var.
-        printf("Now running alarm: \n");
-        int output = outputAlarm(freshAlarm);
-
-        printf("");
-
-        //sysout something
-        //begin countdown
-        clock_t begin;
-        double time_spent;
-        unsigned int i;
-        //begin = clock();
-        for (i=0;1;i++) {
-            //time_spent = (double)(clock() - begin) / CLOCKS_PER_SEC;
-            time_t secondsLeft = mktime(&freshAlarm.targetTime) - time(NULL);
-            //printf("Time spent: %f",time_spent);
-            if ((long) secondsLeft <= (long) 0) {
-                ring();
-
-                break;
-            };
-        };
-
-        //Terminate process and drop out of list
-       
-        kill(getpid(),1);
-
-        return -1;
-    } else if (PID) {
-        freshAlarm.PID = PID;
-        *_p_gAlarmList[selectedSpot] = freshAlarm;
-
-        printf("This is the parent with ID %d, the child ID is %d\n", getpid(), PID);
-        printf("\n");
-
-
-        return 1;
-
-    } // if parent
-    //register PID in var or tmp
-    
-
-};
-
-void f_l() {
-    printf("This is the list function\n");
-}
-
-void f_c() {
-    printf("This is the cancel function\n");
-
-    pid_t pidTest = getpid();
-    kill(pidTest, 1);
-
-}
-
-void f_x() {
-    printf("Goodbye :)\n");
-}
-
-//=====================================================CORE LOOP===================================================================
-
-int selectFunction(char c) {
-    switch( c )
-    {
-        case 's':
-            return f_s();
-            break;
-        case 'l':
-            f_l();
-            break;
-        case 'c':
-            f_c();
-            break;
-        case 'x':
-            f_x();
-            return 0;
-        case '\n':
-            break;
-        default:
-            printf("\ninvalid selection\n");
-            return 1;
-    }
-        return 1;
-}
-
+//============================================GETCH========================================
 //getch() / getche() code
 
 static struct termios old, current;
@@ -254,31 +104,232 @@ char getche(void)
   return getch_(1);
 }
 
+//===========================================ALARM RELATED CODE=============================================
+void ring(int soundIndex) {
+    #ifdef __linux
+        execlp("mpg123","mpg123","-q", "sonic-rings-drop.mp3" ,0);
+    #elif __APPLE__
+        execlp("afplay", "afplay", "sonic-rings-drop.mp3", 0); //Note: None of us have a mac, so this is hard to test
+    #else
+        printf("RING!\n");
+    #endif
+}
+
+int outputAlarm(struct Alarm alarmStruct) {
+    char outDateString[40] = {'\0'};
+    time_t secondsLeftFromStart = mktime(&alarmStruct.targetTime) - time(NULL);
+
+    strftime(outDateString, 39, "%a %m. %h %Y: %H:%M:%S", &alarmStruct.targetTime);
+    printf("Alarm target time: %s\n", outDateString);
+    printf("Remaining time in seconds:%i \n",(int) secondsLeftFromStart);
+    printf("\n");
+
+    return 1;
+}   //TODO: Check if %lu needs to be replaced with %ld
+
+void start_alarm_process(struct tm *newTargetTime) {
+    time_t secondCount = (mktime(&newTargetTime)) - time(NULL);
+    printf("Seconds Left: %lu \n", secondCount);
+    printf("");
+    //=================START ALARM PROCESS==========
+    while (1) {
+        time_t secondsLeft = mktime(&newTargetTime) - time(NULL);
+        if ((long) secondsLeft <= (long) 0) {
+            ring(1);
+
+            break;
+        };
+        sleep(0.2f); //Save a few resources.
+    };
+
+    //Terminate process and drop out of list
+    
+    //kill(getpid(),1);
+    exit(0);
+    return;
+}
+
+pid_t add_alarm_process(struct tm *newTargetTime, int alarmIndex) {
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        printf("Error initializing child process");
+        return -1;
+    }
+    if( pid != 0) {
+        all_alarms[alarmIndex] = (alarmStruct){newTargetTime, pid};
+        outputAlarm(all_alarms[alarmIndex]);
+    };
+    if (pid == 0) {
+        start_alarm_process(newTargetTime);
+    };
+    return getpid();
+}
+
+int insert_alarm(struct tm *newTargetTime) {
+    for (int i = 0; i <= NUM_ALARMS - 1; i++) {
+        if (all_alarms[i].PID == 0) {
+            add_alarm_process(newTargetTime, i);
+            return i;
+        };     
+    };
+    return NUM_ALARMS;
+};
+
+void remove_alarm(int index) {
+    if (all_alarms[index].PID==0) {
+        printf("Already deleted");
+        return;
+    }
+    kill(all_alarms[index].PID, 1);
+    all_alarms[index] = (alarmStruct){0,0};
+}
+
+void list_alarms() {
+    for (int i = 0; i < NUM_ALARMS; i++) {
+            if (all_alarms[i].PID != 0) {
+            printf("Alarm #%i:\n", i+1);
+            outputAlarm(all_alarms[i]);
+        }
+    }
+    return;
+}
+
+void process_cleanup() {
+    for (int i = 0; i <= NUM_ALARMS - 1; i++) {
+        if (all_alarms[i].PID == 0) continue;
+
+        int wstatus;
+        pid_t pid = waitpid(all_alarms[i].PID, &wstatus, WNOHANG | WUNTRACED | WCONTINUED);
+
+        if (pid > 0) remove_alarm(i);
+    }
+}
+
+//==============================================LOOP SELECTED FUNCTIONS========================================================
+
+int f_s() {
+    printf("\nThis is the schedule function\n");
+
+    //check available spots
+    for (int i = 0; i <= NUM_ALARMS -1; i++ ) {
+        if (all_alarms[i].PID == 0) {
+            break;
+        }
+        if (i == NUM_ALARMS -1 && all_alarms[i].PID != 0) {
+            printf("No spot available, cancelling alarm planner\n");
+            return 1;
+        }
+    }
+
+    //int second, minute, hour, day, month, year;
+    struct tm alarmTm;
+    char timeString[40] = {0};
+
+    printf("Enter time in format: YYYY:MM:DD:HH:MM:SS\n");
+    int invalidTime = 1;
+    while (invalidTime) {
+        //scanf("%04d:%02d:%02d:%02d:%02d:%02d", &year, &month, &day, &hour, &minute, &second); //aNNOYING
+        scanf("%19c", &timeString);
+        strptime(timeString, "%Y:%m:%d:%H:%M:%S", &alarmTm);
+        //TODO: error catch: Invalid format, try again
+
+        invalidTime = 0;
+    }
+    printf("Entered time is %s \n", timeString);
+
+    int usedIndex = insert_alarm(&alarmTm);
+    printf("Alarm made at index %i\n", usedIndex);
+    
+    
+};
+
+void f_l() {
+    printf("\nThis is the list function\n");
+    list_alarms();
+}
+
+void f_c() {
+    printf("\nThis is the cancel function\nSelect an alarm to cancel by entering its index");
+    list_alarms();
+    while (1) {
+        int inputIndexNumber;
+        scanf("%d", &inputIndexNumber);
+        if (inputIndexNumber > NUM_ALARMS -1 || inputIndexNumber < 0) {
+            printf("Index out of bounds, try again\n");
+            continue;
+        }else{
+            remove_alarm(inputIndexNumber -1);
+            printf("\nAlarm deleted.\n");
+            break;
+        }
+    }
+
+}
+
+void f_x() {
+    printf("\nCancelling all remaining alarms\n");
+    for (int i = 0; i <= NUM_ALARMS; i++) {
+        if (all_alarms[i].PID != 0) {
+            remove_alarm(i);
+        }
+    }
+    printf("\nGoodbye :)\n");
+}
+
+//=====================================================CORE LOOP===================================================================
+
+int selectFunction(char c) {
+    switch( c )
+    {
+        case 's':
+            return f_s();
+            break;
+        case 'l':
+            f_l();
+            break;
+        case 'c':
+            f_c();
+            break;
+        case 'x':
+            f_x();
+            return 0;
+        case '\n':
+            break;
+        default:
+            printf("\ninvalid selection\n");
+            return 1;
+    }
+        return 1;
+}
+
 
 int main() {
+    // setup
+    all_alarms = (alarmStruct*) malloc(NUM_ALARMS * sizeof(all_alarms));
 
+    memset(all_alarms, 0, NUM_ALARMS * sizeof(all_alarms));
+
+    /*for (int i = 0; i <= NUM_ALARMS -1; i++) {
+        all_alarms[i] = (alarmStruct){0,0};
+    }*/
+
+
+    //welcome message
     time_t result = time(NULL);
-    
     printf("Welcome to the alarm clock!\n");
     int run;
     run = 1;
     while (run) {
-        printf("It is currently %s \nPlease press \"s\" (schedule), \"l\" (list), \"c\" (cancel), \"x\" (exit). Do not press enter: \n" , ctime(&result));
+        printf("It is currently %s \nPlease press \"s\" (schedule), \"l\" (list), \"c\" (cancel), \"x\" (exit). Do not press enter: \n> " , ctime(&result));
         char selectedFunction = getche(); //Getch returns the first given character, and does not wait for enter.
+    
+
+        process_cleanup();
+
         int sf = selectFunction(selectedFunction);
         run = sf;
+        printf("\n");
     }
     return 0;
 }
-
-
-
-
-//note to self: int scanf(const char *format, ...)
-//=> *variable means overloadable
-/* *_p_gAlarmList[selectedSpot] = freshAlarm;
-
-        printf("This is the parent with ID %d, the child ID is %d\n", getpid(), PID);
-        printf("Trying to out put alarm again from global alarm list: \n");
-        outputAlarm(*_p_gAlarmList[selectedSpot]);*/
-
