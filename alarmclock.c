@@ -18,9 +18,9 @@ typedef struct Alarm;
 //functions
 void setTime(time_t t);
 int f_s(void);
-void f_l(void);
-void f_c(void);
-void f_x(void);
+int f_l(void);
+int f_c(void);
+int f_x(void);
 int scheduleAlarm(char *targetTime);
 int selectFunction(char c);
 void ring(int);
@@ -36,11 +36,6 @@ int NUM_ALARMS = 20;
 
 //Struct definitions
 
-typedef struct {
-    char functionChar;
-    char functionDescription[40];
-} FunctionDescriptor;
-
 typedef struct Alarm {
     struct tm targetTime;
 //    char alarmDescription[42];
@@ -48,7 +43,7 @@ typedef struct Alarm {
 } alarmStruct; //alarm is an alias for "struct Alarm" (for some reason "alarm" was a taken symbol def.)
 
 
-alarmStruct* all_alarms;
+alarmStruct *all_alarms;
 
 
 
@@ -151,6 +146,11 @@ void start_alarm_process(struct tm *newTargetTime) {
 
 pid_t add_alarm_process(struct tm *newTargetTime, int alarmIndex) {
 
+
+    char readTimeString[40] = {0};
+    strftime(readTimeString, 39, "%a %m. %h %Y: %H:%M:%S", newTargetTime);
+    printf("Alarm target time: %s\n", readTimeString);
+
     pid_t pid = fork();
     if (pid == -1) {
         printf("Error initializing child process");
@@ -158,7 +158,7 @@ pid_t add_alarm_process(struct tm *newTargetTime, int alarmIndex) {
     }
     if( pid != 0) {
         all_alarms[alarmIndex] = (alarmStruct){newTargetTime, pid};
-        outputAlarm(all_alarms[alarmIndex]);
+        outputAlarm(&all_alarms[alarmIndex]);
     };
     if (pid == 0) {
         start_alarm_process(newTargetTime);
@@ -167,6 +167,12 @@ pid_t add_alarm_process(struct tm *newTargetTime, int alarmIndex) {
 }
 
 int insert_alarm(struct tm *newTargetTime) {
+    char readTimeString[40] = {0};
+    strftime(readTimeString, 39, "%a %m. %h %Y: %H:%M:%S", newTargetTime);
+    printf("Alarm target time: %s\n", readTimeString);
+    
+    
+    
     for (int i = 0; i <= NUM_ALARMS - 1; i++) {
         if (all_alarms[i].PID == 0) {
             add_alarm_process(newTargetTime, i);
@@ -236,7 +242,10 @@ int f_s() {
 
         invalidTime = 0;
     }
-    printf("Entered time is %s \n", timeString);
+    char readTimeString[40] = {0};
+    strftime(readTimeString, 39, "%a %m. %h %Y: %H:%M:%S", &alarmTm);
+    printf("Alarm target time: %s\n", readTimeString);
+
 
     int usedIndex = insert_alarm(&alarmTm);
     printf("Alarm made at index %i\n", usedIndex);
@@ -244,12 +253,13 @@ int f_s() {
     
 };
 
-void f_l() {
+int f_l() {
     printf("\nThis is the list function\n");
     list_alarms();
+    return 1;
 }
 
-void f_c() {
+int f_c() {
     printf("\nThis is the cancel function\nSelect an alarm to cancel by entering its index");
     list_alarms();
     while (1) {
@@ -265,9 +275,11 @@ void f_c() {
         }
     }
 
+    return 1;
+
 }
 
-void f_x() {
+int f_x() {
     printf("\nCancelling all remaining alarms\n");
     for (int i = 0; i <= NUM_ALARMS; i++) {
         if (all_alarms[i].PID != 0) {
@@ -275,6 +287,8 @@ void f_x() {
         }
     }
     printf("\nGoodbye :)\n");
+
+    return 0;
 }
 
 //=====================================================CORE LOOP===================================================================
@@ -286,14 +300,14 @@ int selectFunction(char c) {
             return f_s();
             break;
         case 'l':
-            f_l();
+            return f_l();
             break;
         case 'c':
-            f_c();
+            return f_c();
             break;
         case 'x':
-            f_x();
-            return 0;
+            return f_x();
+            break;
         case '\n':
             break;
         default:
@@ -306,13 +320,13 @@ int selectFunction(char c) {
 
 int main() {
     // setup
-    all_alarms = (alarmStruct*) malloc(NUM_ALARMS * sizeof(all_alarms));
+    all_alarms = (alarmStruct*) malloc(NUM_ALARMS * sizeof(alarmStruct));
 
-    memset(all_alarms, 0, NUM_ALARMS * sizeof(all_alarms));
+    memset(all_alarms, 0, NUM_ALARMS * sizeof(alarmStruct));
 
-    /*for (int i = 0; i <= NUM_ALARMS -1; i++) {
+    for (int i = 0; i <= NUM_ALARMS -1; i++) {
         all_alarms[i] = (alarmStruct){0,0};
-    }*/
+    }
 
 
     //welcome message
