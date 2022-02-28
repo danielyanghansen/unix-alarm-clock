@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 
 //Global static variables
@@ -18,9 +19,9 @@ typedef struct Alarm;
 //functions
 void setTime(time_t t);
 int f_s(void);
-int f_l(void);
-int f_c(void);
-int f_x(void);
+void f_l(void);
+void f_c(void);
+void f_x(void);
 int scheduleAlarm(char *targetTime);
 int selectFunction(char c);
 void ring(int);
@@ -32,9 +33,14 @@ void printAllAlarms(void);
 
 //Definitions
 
-int NUM_ALARMS = 20;
+int NUM_ALARMS = 10;
 
 //Struct definitions
+
+typedef struct {
+    char functionChar;
+    char functionDescription[40];
+} FunctionDescriptor;
 
 typedef struct Alarm {
     struct tm targetTime;
@@ -43,7 +49,7 @@ typedef struct Alarm {
 } alarmStruct; //alarm is an alias for "struct Alarm" (for some reason "alarm" was a taken symbol def.)
 
 
-alarmStruct *all_alarms;
+alarmStruct* all_alarms;
 
 
 
@@ -114,7 +120,7 @@ int outputAlarm(struct Alarm alarmStruct) {
     char outDateString[40] = {'\0'};
     time_t secondsLeftFromStart = mktime(&alarmStruct.targetTime) - time(NULL);
 
-    strftime(outDateString, 39, "%a %m. %h %Y: %H:%M:%S", &alarmStruct.targetTime);
+    strftime(outDateString, 39, "%a %d. %B %Y: %H:%M:%S", &alarmStruct.targetTime);
     printf("Alarm target time: %s\n", outDateString);
     printf("Remaining time in seconds:%i \n",(int) secondsLeftFromStart);
     printf("\n");
@@ -123,12 +129,12 @@ int outputAlarm(struct Alarm alarmStruct) {
 }   //TODO: Check if %lu needs to be replaced with %ld
 
 void start_alarm_process(struct tm *newTargetTime) {
-    time_t secondCount = (mktime(&newTargetTime)) - time(NULL);
+    time_t secondCount = (mktime(newTargetTime)) - time(NULL);
     printf("Seconds Left: %lu \n", secondCount);
     printf("");
     //=================START ALARM PROCESS==========
     while (1) {
-        time_t secondsLeft = mktime(&newTargetTime) - time(NULL);
+        time_t secondsLeft = mktime(newTargetTime) - time(NULL);
         if ((long) secondsLeft <= (long) 0) {
             ring(1);
 
@@ -144,35 +150,26 @@ void start_alarm_process(struct tm *newTargetTime) {
     return;
 }
 
-pid_t add_alarm_process(struct tm *newTargetTime, int alarmIndex) {
-
-
-    char readTimeString[40] = {0};
-    strftime(readTimeString, 39, "%a %m. %h %Y: %H:%M:%S", newTargetTime);
-    printf("Alarm target time: %s\n", readTimeString);
+pid_t add_alarm_process(struct tm newTargetTime, int alarmIndex) {
 
     pid_t pid = fork();
     if (pid == -1) {
-        printf("Error initializing child process");
+        printf("\nError initializing child process\n");
         return -1;
     }
     if( pid != 0) {
+        printf("\nDette er alarmIndex\n");
+
         all_alarms[alarmIndex] = (alarmStruct){newTargetTime, pid};
-        outputAlarm(&all_alarms[alarmIndex]);
+        outputAlarm(all_alarms[alarmIndex]);
     };
     if (pid == 0) {
-        start_alarm_process(newTargetTime);
+        start_alarm_process(&newTargetTime);
     };
     return getpid();
 }
 
-int insert_alarm(struct tm *newTargetTime) {
-    char readTimeString[40] = {0};
-    strftime(readTimeString, 39, "%a %m. %h %Y: %H:%M:%S", newTargetTime);
-    printf("Alarm target time: %s\n", readTimeString);
-    
-    
-    
+int insert_alarm(struct tm newTargetTime) {
     for (int i = 0; i <= NUM_ALARMS - 1; i++) {
         if (all_alarms[i].PID == 0) {
             add_alarm_process(newTargetTime, i);
@@ -228,38 +225,44 @@ int f_s() {
         }
     }
 
-    //int second, minute, hour, day, month, year;
     struct tm alarmTm;
+    memset(&alarmTm, 0, sizeof(struct tm));
+    time_t currentTime = time(NULL);
+    struct tm* localTm = localtime(&currentTime);
+
+    //Use time zone settings from local timezone
+    alarmTm.tm_isdst = localTm->tm_isdst;
+    alarmTm.tm_zone = localTm->tm_zone;
+    alarmTm.tm_gmtoff = localTm->tm_gmtoff;
+    
     char timeString[40] = {0};
 
     printf("Enter time in format: YYYY:MM:DD:HH:MM:SS\n");
     int invalidTime = 1;
     while (invalidTime) {
-        //scanf("%04d:%02d:%02d:%02d:%02d:%02d", &year, &month, &day, &hour, &minute, &second); //aNNOYING
         scanf("%19c", &timeString);
         strptime(timeString, "%Y:%m:%d:%H:%M:%S", &alarmTm);
         //TODO: error catch: Invalid format, try again
 
         invalidTime = 0;
     }
-    char readTimeString[40] = {0};
-    strftime(readTimeString, 39, "%a %m. %h %Y: %H:%M:%S", &alarmTm);
-    printf("Alarm target time: %s\n", readTimeString);
+    char outDateString[40] = {0};
 
+    strftime(outDateString, 39, "%a %d. %B %Y: %H:%M:%S", &alarmTm);
+    printf("Alarm target time: %s\n", outDateString);
 
-    int usedIndex = insert_alarm(&alarmTm);
+    int usedIndex = insert_alarm(alarmTm);
     printf("Alarm made at index %i\n", usedIndex);
     
     
 };
 
-int f_l() {
+void f_l() {
     printf("\nThis is the list function\n");
     list_alarms();
-    return 1;
 }
 
-int f_c() {
+void f_c() {
     printf("\nThis is the cancel function\nSelect an alarm to cancel by entering its index");
     list_alarms();
     while (1) {
@@ -275,11 +278,9 @@ int f_c() {
         }
     }
 
-    return 1;
-
 }
 
-int f_x() {
+void f_x() {
     printf("\nCancelling all remaining alarms\n");
     for (int i = 0; i <= NUM_ALARMS; i++) {
         if (all_alarms[i].PID != 0) {
@@ -287,8 +288,6 @@ int f_x() {
         }
     }
     printf("\nGoodbye :)\n");
-
-    return 0;
 }
 
 //=====================================================CORE LOOP===================================================================
@@ -300,14 +299,14 @@ int selectFunction(char c) {
             return f_s();
             break;
         case 'l':
-            return f_l();
+            f_l();
             break;
         case 'c':
-            return f_c();
+            f_c();
             break;
         case 'x':
-            return f_x();
-            break;
+            f_x();
+            return 0;
         case '\n':
             break;
         default:
@@ -323,11 +322,6 @@ int main() {
     all_alarms = (alarmStruct*) malloc(NUM_ALARMS * sizeof(alarmStruct));
 
     memset(all_alarms, 0, NUM_ALARMS * sizeof(alarmStruct));
-
-    for (int i = 0; i <= NUM_ALARMS -1; i++) {
-        all_alarms[i] = (alarmStruct){0,0};
-    }
-
 
     //welcome message
     time_t result = time(NULL);
@@ -347,3 +341,4 @@ int main() {
     }
     return 0;
 }
+
