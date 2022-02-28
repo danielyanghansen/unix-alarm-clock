@@ -1,3 +1,20 @@
+# Running the program
+
+## On Linux
+
+Navigate to the base directory of the repository and compile the C program:
+```
+gcc alarmclock.c -o alarmclock
+```
+Then run the alarmclock:
+```
+./alarmclock
+```
+
+*Note* we expect the system to already have mpg123 installed. If not, run `apt install mpg123`
+
+
+
 # Tests
 
 ## Note
